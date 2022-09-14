@@ -1,7 +1,7 @@
 # <strong>Welcome</strong> to @joaopdavila
 ![profile count](https://komarev.com/ghpvc/?username=joaopdavila)&nbsp; *(since 09/2022)*
 
-<img src="https://github-readme-stats.vercel.app/api?username=joaopdavila&show_icons=true&hide=stars,contribs&theme=tokyonight" width=50% height=150/><img src="https://github-readme-stats.vercel.app/api/top-langs/?username=joaopdavila&layout=compact&show_icons=true&&theme=tokyonight" width=50% height=150/>
+<img src="https://github-readme-stats.vercel.app/api?username=joaopdavila&show_icons=true&hide=stars,contribs&theme=tokyonight" height=150/> <img src="https://github-readme-stats.vercel.app/api/top-langs/?username=joaopdavila&layout=compact&show_icons=true&&theme=tokyonight" height=150/>
 
 ## <strong>About Me</strong>
 - 🔭 I’m a student at <strong>Escola Politécnica - Universidade de São Paulo</strong>
