@@ -1,16 +1,31 @@
-### Hi there 👋
+# <strong>Welcome</strong> to @joaopdavila
 
-<!--
-**joaopdavila/joaopdavila** is a ✨ _special_ ✨ repository because its `README.md` (this file) appears on your GitHub profile.
+<br>
 
-Here are some ideas to get you started:
+<img src="https://github-readme-stats.vercel.app/api?username=joaopdavila&show_icons=true&hide=stars,contribs&theme=tokyonight" width="500">
 
-- 🔭 I’m currently working on ...
-- 🌱 I’m currently learning ...
-- 👯 I’m looking to collaborate on ...
-- 🤔 I’m looking for help with ...
-- 💬 Ask me about ...
-- 📫 How to reach me: ...
-- 😄 Pronouns: ...
-- ⚡ Fun fact: ...
--->
+<br>
+
+## <strong>About Me</strong>
+- 🔭 I’m a student at <strong>Escola Politécnica - Universidade de São Paulo</strong>
+- 🔭 I’m currently working as a <strong>Full-Stack Developer</strong> @ <strong>[Keycash](https://www.linkedin.com/company/keycash-inc)'s KeyLab Squad</strong>
+- 🌱 I’m currently learning <strong>Front-End Development</strong>
+- 💬 Ask me about <strong>Product Hacking and Python Serverless Development</strong>
+
+<br>
+
+
+## <strong>Contact</strong>
+
+<p>
+<details>
+<summary>
+📫 How to reach me
+</summary>
+
+- `LinkedIn` - <strong>[joaopdavila](https://www.linkedin.com/in/joaopdavila/)</strong>
+- `E-Mail` - <strong>davila.joaopedro@gmail.com</strong>
+- `Discord` - <strong>João P. T. d.#2738</strong>
+
+</detail>
+</p>
