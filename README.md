@@ -5,9 +5,8 @@
 
 ## <strong>About Me</strong>
 - 🔭 I’m a student at <strong>Escola Politécnica - Universidade de São Paulo</strong>
-- 🔭 I’m currently working as a <strong>Full-Stack Developer</strong> @ <strong>[Keycash](https://www.linkedin.com/company/keycash-inc)'s KeyLab Squad</strong>
-- 🌱 I’m currently learning <strong>Front-End Development</strong>
-- 💬 Ask me about <strong>Product Hacking and Python Serverless Development</strong>
+- 🔭 I’m currently working as a <strong>Software Engineer</strong> @ <strong>[BTG Pactual]([https://www.linkedin.com/company/keycash-inc](https://br.linkedin.com/company/btgpactual))'s Collateral IT</strong>
+- 🌱 I’m currently learning <strong>.NET</strong>
 
 <br>
 
