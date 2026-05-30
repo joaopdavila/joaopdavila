@@ -8,6 +8,8 @@ from telegram.ext import Application, CommandHandler, ContextTypes
 
 from app.config import Settings
 from app.handlers.garmin import register_garmin_handlers
+from app.handlers.notes import register_notes_handlers
+from app.handlers.tasks import register_tasks_handlers
 from app.scheduler import build_scheduler
 from app.security import authorized_only
 
@@ -107,6 +109,8 @@ def build_application(settings: Settings) -> Application:
     application.add_handler(CommandHandler("ping", ping))
 
     register_garmin_handlers(application, settings)
+    register_tasks_handlers(application, settings)
+    register_notes_handlers(application, settings)
 
     async def error_handler(
         update: object, context: ContextTypes.DEFAULT_TYPE
