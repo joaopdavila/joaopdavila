@@ -7,8 +7,10 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
 from app.config import Settings
+from app.handlers.finance import register_finance_handlers
 from app.handlers.garmin import register_garmin_handlers
 from app.handlers.notes import register_notes_handlers
+from app.handlers.shopping import register_shopping_handlers
 from app.handlers.tasks import register_tasks_handlers
 from app.scheduler import build_scheduler
 from app.security import authorized_only
@@ -111,6 +113,8 @@ def build_application(settings: Settings) -> Application:
     register_garmin_handlers(application, settings)
     register_tasks_handlers(application, settings)
     register_notes_handlers(application, settings)
+    register_shopping_handlers(application, settings)
+    register_finance_handlers(application, settings)
 
     async def error_handler(
         update: object, context: ContextTypes.DEFAULT_TYPE
