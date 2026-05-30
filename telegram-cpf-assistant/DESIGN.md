@@ -1,22 +1,27 @@
 # telegram-cpf-assistant — Design & Plano de Implementação
 
-> **Atualização de sessão (2026-05-30)** — antes de ler o restante:
+> **Atualização de sessão (2026-05-30, port executado)** — antes de ler o restante:
 >
 > **Já feito:**
-> - Fase 0 (scaffold) e Fase 1 (bot mínimo com gate de segurança) commitadas em `telegram-cpf-assistant/` na branch `claude/telegram-cpf-assistant-design-t31ZQ`.
+> - Fase 0 (scaffold), Fase 1 (bot mínimo + gate), Fase 2 (SQLite + migrations runner) e Fase 1.5 (fusão com o `garmin-dashboard`) commitadas em `telegram-cpf-assistant/` na branch `claude/telegram-cpf-assistant-design-t31ZQ`.
 > - PR draft #1 aberto em `joaopdavila/joaopdavila`.
-> - Comandos `/start`, `/help`, `/ping` funcionais. SQLite e scheduler ainda não — vêm nas fases 2+.
+> - Comandos `/start`, `/help`, `/ping` + os 10 comandos `/garmin*` funcionais.
+> - Scheduler unificado (APScheduler) com 5 jobs Garmin (`garmin_sync_morning`, `garmin_morning_report`, `garmin_evening_report`, `garmin_alerts`, `garmin_weekly`).
 >
-> **Nova direção (decidida com o usuário, ainda não implementada):**
-> - Unir o repo `joaopdavila/garmin-dashboard` (que já manda mensagens no Telegram) com este projeto. **Estratégia: migrar o conteúdo do `garmin-dashboard` para dentro do `telegram-cpf-assistant`** como mais um domínio (`app/handlers/garmin.py`, `app/services/garmin_service.py`, `app/jobs/garmin_*.py`, tabelas SQLite extras).
-> - **Bot único, mesmo `TELEGRAM_BOT_TOKEN`** — o token usado hoje pelo Garmin passa a alimentar a central completa. O processo do Garmin é aposentado depois da fusão.
+> **Fase 1.5 — porte concluído** (ver `PORT_PLAN.md` para o levantamento completo):
+> - Auth Garmin: lib `garminconnect` (cache OAuth), portada para `app/clients/garmin_client.py` com `GARMIN_TOKEN_DIR` configurável (default `data/garmin_session/`).
+> - 6 tabelas SQLite (`migrations/002_garmin.sql`): `garmin_daily`, `garmin_sleep`, `garmin_training`, `garmin_workouts`, `garmin_body_composition`, `garmin_sync_log` — cada uma com `raw_json`.
+> - `app/repositories/garmin_repo.py`, `app/services/garmin_service.py` (sync + formatadores + relatórios + alertas), `app/handlers/garmin.py`, `app/jobs/garmin_*.py`, `app/scheduler.py`.
+> - Importador de dados legados: `migrations/scripts/import_garmin_legacy.py` (lê CSV/JSON do garmin-dashboard → `garmin_body_composition`).
+> - **Bot único, mesmo `TELEGRAM_BOT_TOKEN`** do garmin-dashboard. Cutover documentado no `README.md` (seção "Cutover do garmin-dashboard").
 >
-> **Bloqueio pendente:** a sessão atual só tem permissão GitHub para `joaopdavila/joaopdavila`. Para a próxima sessão ler o código do `garmin-dashboard`, o usuário precisa adicionar esse repo à whitelist do ambiente Claude Code on the web e iniciar uma sessão nova (a whitelist é fixada no boot do container).
+> **Decisões da sessão (com o usuário):**
+> - Mensagens Garmin em **PT-BR seco, sem emoji e sem Markdown** (convenção do cpf-assistant), em vez do formato emoji+Markdown do garmin-dashboard.
+> - **Alertas reativos portados** como 5º job (`garmin_alerts`, 3x/dia), além dos 4 jobs da Fase 1.5.
 >
-> **Status da Fase 1.5 (arquitetura):** desenhada nesta sessão — ver seção `### Fase 1.5 — Fusão com garmin-dashboard (arquitetura)` em "Plano de implementação". Estão definidos: módulos novos (`app/handlers/garmin.py`, `app/services/garmin_service.py`, `app/clients/garmin_client.py`, `app/repositories/garmin_repo.py`, `app/jobs/garmin_*.py`), 6 tabelas SQLite (`garmin_daily`, `garmin_sleep`, `garmin_training`, `garmin_workouts`, `garmin_body_composition`, `garmin_sync_log`), ~10 comandos novos, 4–5 jobs no scheduler unificado, e como `/checkin`, `/fechamento`, `/semana` ganham contexto Garmin.
+> **Fora de escopo (mantidos no garmin-dashboard):** `health_mcp.py` (MCP `health-data`), dashboards HTML, `render.yaml`/`Dockerfile`. Nada foi apagado do garmin-dashboard — aposentadoria é manual.
 >
-> **Próximo prompt sugerido para a sessão nova (após whitelist incluir `joaopdavila/garmin-dashboard`):**
-> > Continue de onde paramos. A branch `claude/telegram-cpf-assistant-design-t31ZQ` (PR draft #1) tem o `telegram-cpf-assistant` com Fase 0+1 prontos e a arquitetura da Fase 1.5 desenhada em `telegram-cpf-assistant/DESIGN.md`. Sua tarefa: ler `joaopdavila/garmin-dashboard` e **portar** o código existente para dentro das casquinhas planejadas na Fase 1.5 — `app/clients/garmin_client.py` (auth + sessão), `app/services/garmin_service.py` (queries de dados), `app/jobs/garmin_*.py` (jobs já existentes). Mantenha o `TELEGRAM_BOT_TOKEN` atual do Garmin como único token. Antes de codar, abra um sub-plano em `DESIGN.md` mapeando: (1) lib de auth usada, (2) tabela/arquivos de dados atuais, (3) jobs existentes vs planejados, (4) plano de migração de dados históricos, (5) estratégia de cutover (1 semana de overlap antes de aposentar o garmin-dashboard).
+> **Próximos passos (não nesta etapa):** integração do contexto Garmin nos fluxos `/checkin`, `/fechamento` e `/semana` (Fases 3–7, que ainda não existem); validação de paridade em produção via checklist do README.
 
 ---
 

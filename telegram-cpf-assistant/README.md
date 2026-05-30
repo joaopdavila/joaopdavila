@@ -6,7 +6,10 @@ Assistente pessoal via Telegram para organização de pessoa física (tarefas, n
 - **Local-first** (SQLite em `data/`, sem cloud)
 - **Sem LLM**, sem webhook público, sem integrações externas
 
-> Estado atual: Fase 0 + Fase 1 do plano de implementação (ver `../.../voc-um-arquiteto-eventual-wind.md`). Apenas `/start`, `/help` e `/ping` estão funcionais.
+> Estado atual: Fases 0, 1, 2 e 1.5 (fusão com o `garmin-dashboard`). Além de
+> `/start`, `/help` e `/ping`, o domínio **Garmin** está portado: comandos
+> `/garmin*`, SQLite com tabelas `garmin_*`, scheduler com jobs de sync,
+> relatórios matinal/vespertino/semanal e alertas reativos.
 
 ## Requisitos
 
@@ -41,10 +44,21 @@ Assistente pessoal via Telegram para organização de pessoa física (tarefas, n
 
    Variáveis:
    - `TELEGRAM_BOT_TOKEN` — token recebido do [@BotFather](https://t.me/BotFather) ao criar o bot.
+     **Use o MESMO token que o `garmin-dashboard` usa hoje** (ver "Cutover" abaixo).
    - `TELEGRAM_CHAT_ID` — seu chat id pessoal. Descubra com [@userinfobot](https://t.me/userinfobot).
    - `TIMEZONE` — padrão `America/Sao_Paulo`.
-   - `DATABASE_PATH` — caminho do SQLite (criado nas próximas fases).
+   - `DATABASE_PATH` — caminho do SQLite.
    - `LOG_LEVEL` — `INFO`, `DEBUG`, `WARNING` ou `ERROR`.
+   - `GARMIN_TOKEN_DIR` — diretório do cache de token do Garmin (padrão
+     `./data/garmin_session`). Copie o conteúdo de `~/.garminconnect/` para cá
+     para reaproveitar a sessão sem refazer 2FA.
+   - `GARMIN_EMAIL` / `GARMIN_PASSWORD` — só preencher se não houver cache de
+     token (login fresco no Garmin Connect).
+
+5b. Inicialize o banco (cria/atualiza o schema SQLite):
+   ```cmd
+   python -m app.database --init
+   ```
 
 5. Garanta UTF-8 no terminal (acentos e emojis):
    ```cmd
@@ -77,6 +91,34 @@ Mesmos passos, com `python3 -m venv .venv` e `source .venv/bin/activate`.
 | `/start` | Confirma que o bot está online. |
 | `/help` | Lista comandos atuais e os planejados para as próximas fases. |
 | `/ping` | Responde `pong — uptime XhYYm`. |
+
+### Comandos Garmin (Fase 1.5)
+
+| Comando | Comportamento |
+|---|---|
+| `/garmin` | Resumo de hoje: sono, body battery, readiness, passos, último treino. |
+| `/garmin_sono` | Detalhe do sono da última noite (fases, score, HRV). |
+| `/garmin_hrv` | Tendência de HRV dos últimos 7 dias. |
+| `/garmin_treino [id]` | Último treino completo (ou um específico por id). |
+| `/garmin_treinos [n]` | Lista dos últimos N treinos (padrão 7). |
+| `/garmin_corpo` | Última composição corporal + variação de peso. |
+| `/garmin_peso <valor>` | Registra peso manual (`source = manual`). |
+| `/garmin_status` | Training status + readiness + carga aguda/crônica. |
+| `/garmin_semana` | Resumo Garmin da semana. |
+| `/garmin_sync` | Força sincronização imediata com o Garmin Connect. |
+
+Os comandos `/garmin*` leem sempre do SQLite local; a sincronização com a API
+do Garmin acontece nos jobs agendados (e via `/garmin_sync`).
+
+**Jobs Garmin no scheduler** (fuso `America/Sao_Paulo`):
+
+| Job | Horário | Conteúdo |
+|---|---|---|
+| `garmin_sync_morning` | 06:30 diário | Puxa dados (noite + dia) para o SQLite. Sem envio. |
+| `garmin_morning_report` | 07:30 diário | Relatório matinal (sono, body battery, readiness). |
+| `garmin_evening_report` | 19:00 diário | Recap do dia (passos, kcal, stress, treino). |
+| `garmin_alerts` | 08/14/20h | Alertas reativos (HRV em queda, sono curto, body battery baixa). Só envia se disparar. |
+| `garmin_weekly` | Domingo 17:55 | Bloco semanal Garmin. |
 
 Comandos das próximas fases (tarefas, notas, compras, finanças, casamento, saúde, revisão semanal) estão documentados no plano de design e serão habilitados conforme cada fase for implementada.
 
@@ -141,13 +183,89 @@ telegram-cpf-assistant/
 | Acentos quebrados no terminal | Code page do Windows | `chcp 65001` antes de rodar. |
 | Mensagem de erro `pong — uptime ...` não chega | Token inválido ou bot bloqueado | Verificar token no `.env` e abrir a conversa com o bot. |
 
+## Cutover do garmin-dashboard
+
+O `telegram-cpf-assistant` absorve o domínio Garmin que hoje roda no
+`joaopdavila/garmin-dashboard` (briefings matinal/vespertino + alertas via
+GitHub Actions). A migração é manual e **não apaga nada** do garmin-dashboard —
+a aposentadoria é decisão sua, após validar a paridade.
+
+### Token único
+
+O bot unificado usa o **mesmo `TELEGRAM_BOT_TOKEN`** do garmin-dashboard. Dois
+processos diferentes com o mesmo token brigam pelo polling
+(`Conflict: terminated by other getUpdates`), então **só um pode estar ativo
+por vez**.
+
+> Se quiser rodar os dois em paralelo durante a validação, use um **bot/token de
+> teste separado** (outro bot do @BotFather) no cpf-assistant; não aponte os
+> dois para o mesmo token ao mesmo tempo.
+
+### Reaproveitar a sessão Garmin (evitar 2FA)
+
+1. Localize o cache de token usado hoje pelo garmin-dashboard: `~/.garminconnect/`.
+2. Copie o conteúdo para o `GARMIN_TOKEN_DIR` do cpf-assistant
+   (padrão `./data/garmin_session/`):
+   ```cmd
+   xcopy /E /I "%USERPROFILE%\.garminconnect" "data\garmin_session"
+   ```
+   (Linux/macOS: `cp -r ~/.garminconnect/. data/garmin_session/`.)
+3. Se não houver cache, preencha `GARMIN_EMAIL`/`GARMIN_PASSWORD` no `.env` — o
+   primeiro start faz login fresco e salva o cache em `GARMIN_TOKEN_DIR`.
+
+### Importar dados históricos de peso/composição
+
+```cmd
+python migrations/scripts/import_garmin_legacy.py --source-dir ..\garmin-dashboard
+```
+
+Lê `inbody_data.csv`, `relaxmedic_data.csv` e `apple_health_weight.json` do
+checkout do garmin-dashboard e popula `garmin_body_composition`. Tolerante a
+falhas (linhas com erro vão para `data/garmin_import_errors.log`). Use
+`--dry-run` para conferir antes.
+
+### Passos do cutover
+
+1. **Parar o garmin-dashboard.** Desabilite os workflows agendados em
+   `garmin-dashboard/.github/workflows/` (`daily-briefing.yml`, `alerts.yml`)
+   ou pause o repositório. Isso evita o conflito de polling e mensagens duplicadas.
+2. (Opcional) **1 semana de overlap em teste.** Com um token de teste, rode o
+   cpf-assistant em paralelo por ~1 semana e compare as mensagens com as do
+   garmin-dashboard antes de desligar o original.
+3. **Iniciar o cpf-assistant** com o token de produção:
+   ```cmd
+   python -m app.database --init
+   python -m app.main
+   ```
+4. **Validar paridade** com o checklist abaixo.
+5. Só então aposente o garmin-dashboard de vez (manter o repo para histórico).
+
+### Checklist de paridade
+
+- [ ] Mensagem **matinal** (`garmin_morning_report`, 07:30) chega com sono,
+      body battery e readiness.
+- [ ] Mensagem **vespertina** (`garmin_evening_report`, 19:00) chega com passos,
+      kcal, stress e treino do dia.
+- [ ] Bloco **semanal** (`garmin_weekly`, domingo) chega com sono médio, HRV,
+      treinos, distância e peso.
+- [ ] **Alertas** (`garmin_alerts`) disparam só quando HRV cai 3 noites, sono
+      < 6h por 2 noites, ou body battery < 30.
+- [ ] `/garmin` e demais `/garmin*` respondem com dados reais.
+- [ ] `/garmin_sync` atualiza as tabelas `garmin_*`.
+
+> Diferença esperada: as mensagens do cpf-assistant são em **PT-BR seco, sem
+> emoji** (convenção do projeto), enquanto o garmin-dashboard usava emoji +
+> Markdown. O conteúdo é equivalente.
+
 ## Roadmap
 
 Implementação em fases (ver plano de design completo):
 
 - **Fase 0** ✅ Setup do projeto.
 - **Fase 1** ✅ Bot mínimo com gate de segurança.
-- **Fase 2** SQLite + repositórios base.
+- **Fase 1.5** ✅ Fusão com o garmin-dashboard (domínio Garmin).
+- **Fase 2** ✅ SQLite + repositórios base.
+- **Fase 6** ✅ Scheduler (jobs Garmin; demais jobs nas próximas fases).
 - **Fase 3** Tarefas e notas.
 - **Fase 4** Compras e finanças.
 - **Fase 5** Check-in e fechamento manuais.
