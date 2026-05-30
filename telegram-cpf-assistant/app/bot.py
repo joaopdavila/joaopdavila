@@ -9,6 +9,7 @@ from telegram.ext import Application, CommandHandler, ContextTypes
 from app.config import Settings
 from app.handlers.finance import register_finance_handlers
 from app.handlers.garmin import register_garmin_handlers
+from app.handlers.health import register_health_handlers
 from app.handlers.notes import register_notes_handlers
 from app.handlers.shopping import register_shopping_handlers
 from app.handlers.tasks import register_tasks_handlers
@@ -115,6 +116,7 @@ def build_application(settings: Settings) -> Application:
     register_notes_handlers(application, settings)
     register_shopping_handlers(application, settings)
     register_finance_handlers(application, settings)
+    register_health_handlers(application, settings)
 
     async def error_handler(
         update: object, context: ContextTypes.DEFAULT_TYPE
