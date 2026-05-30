@@ -13,8 +13,10 @@
 >
 > **Bloqueio pendente:** a sessão atual só tem permissão GitHub para `joaopdavila/joaopdavila`. Para a próxima sessão ler o código do `garmin-dashboard`, o usuário precisa adicionar esse repo à whitelist do ambiente Claude Code on the web e iniciar uma sessão nova (a whitelist é fixada no boot do container).
 >
-> **Próximo prompt sugerido para a sessão nova:**
-> > Continue de onde paramos. A branch `claude/telegram-cpf-assistant-design-t31ZQ` (PR draft #1) tem o `telegram-cpf-assistant` com Fase 0+1 prontos. Agora leia `joaopdavila/garmin-dashboard`, mapeie a arquitetura (bot, scheduler, handlers, comandos, integração com Garmin API, tabelas se houver), e proponha (sem implementar ainda) o plano de fusão em uma **Fase 1.5 — Garmin**. Detalhe quais arquivos do garmin-dashboard são absorvidos, quais comandos novos vêm, quais jobs entram no scheduler unificado, e como o `/checkin`, `/fechamento` e `/semana` passam a incluir métricas Garmin. Atualize `telegram-cpf-assistant/DESIGN.md` com a nova fase. Token Telegram fica único (o do Garmin atual).
+> **Status da Fase 1.5 (arquitetura):** desenhada nesta sessão — ver seção `### Fase 1.5 — Fusão com garmin-dashboard (arquitetura)` em "Plano de implementação". Estão definidos: módulos novos (`app/handlers/garmin.py`, `app/services/garmin_service.py`, `app/clients/garmin_client.py`, `app/repositories/garmin_repo.py`, `app/jobs/garmin_*.py`), 6 tabelas SQLite (`garmin_daily`, `garmin_sleep`, `garmin_training`, `garmin_workouts`, `garmin_body_composition`, `garmin_sync_log`), ~10 comandos novos, 4–5 jobs no scheduler unificado, e como `/checkin`, `/fechamento`, `/semana` ganham contexto Garmin.
+>
+> **Próximo prompt sugerido para a sessão nova (após whitelist incluir `joaopdavila/garmin-dashboard`):**
+> > Continue de onde paramos. A branch `claude/telegram-cpf-assistant-design-t31ZQ` (PR draft #1) tem o `telegram-cpf-assistant` com Fase 0+1 prontos e a arquitetura da Fase 1.5 desenhada em `telegram-cpf-assistant/DESIGN.md`. Sua tarefa: ler `joaopdavila/garmin-dashboard` e **portar** o código existente para dentro das casquinhas planejadas na Fase 1.5 — `app/clients/garmin_client.py` (auth + sessão), `app/services/garmin_service.py` (queries de dados), `app/jobs/garmin_*.py` (jobs já existentes). Mantenha o `TELEGRAM_BOT_TOKEN` atual do Garmin como único token. Antes de codar, abra um sub-plano em `DESIGN.md` mapeando: (1) lib de auth usada, (2) tabela/arquivos de dados atuais, (3) jobs existentes vs planejados, (4) plano de migração de dados históricos, (5) estratégia de cutover (1 semana de overlap antes de aposentar o garmin-dashboard).
 
 ---
 
@@ -557,6 +559,97 @@ Roadmap pós-MVP, sem compromisso de prazo:
 - `/ping` responde "pong" e uptime.
 **Teste manual:** abrir Telegram, mandar `/start` do seu chat e de outro (peça a alguém ou use outro bot/conta) — segundo não deve receber resposta.
 **Riscos:** vazamento de token em log se mal-configurado. **Mitigação:** logger nunca loga `settings` direto; loga `settings.redacted()`.
+
+### Fase 1.5 — Fusão com `garmin-dashboard` (arquitetura)
+
+> **Status:** desenho pronto; portabilidade do código existente do `joaopdavila/garmin-dashboard` será feita na próxima sessão (após whitelist atualizada).
+
+**Objetivo:** absorver o bot Garmin atual como mais um domínio do `telegram-cpf-assistant`, sob um único `TELEGRAM_BOT_TOKEN`, mantendo as mensagens automáticas que já existem hoje (sono, readiness, body battery, treinos) e habilitando consulta sob demanda.
+
+**Cria/altera:**
+
+- `app/handlers/garmin.py` — handlers de comando.
+- `app/services/garmin_service.py` — orquestra busca + persistência + formatação.
+- `app/clients/garmin_client.py` — wrapper sobre a lib usada hoje no `garmin-dashboard` (`garth` ou `garminconnect` — confirmar na próxima sessão). Tokens de sessão Garmin ficam em `data/garmin_session/` (gitignored).
+- `app/repositories/garmin_repo.py` — SQL para as tabelas abaixo.
+- `app/jobs/garmin_morning.py` — relatório matinal (07:30, antes do `/checkin`).
+- `app/jobs/garmin_evening.py` — métricas do dia (19:00, antes do `/fechamento`).
+- `app/jobs/garmin_weekly.py` — bloco Garmin agregado à revisão de domingo.
+- `migrations/00X_garmin.sql` — tabelas.
+- `.env.example` ganha: `GARMIN_EMAIL`, `GARMIN_PASSWORD` (opcionais — só preencher se usar Garmin Connect direto; se a auth atual usa OAuth via `garth`, basta apontar para o diretório de tokens).
+
+**Tabelas SQLite novas:**
+
+| Tabela | Campos principais | Granularidade |
+|---|---|---|
+| `garmin_daily` | id, date UNIQUE, steps, calories_total, calories_active, distance_km, resting_hr, body_battery_max, body_battery_min, stress_avg, raw_json | 1 linha/dia |
+| `garmin_sleep` | id, date UNIQUE, total_hours, deep_min, light_min, rem_min, awake_min, score, hrv_avg, raw_json | 1 linha/noite |
+| `garmin_training` | id, date UNIQUE, readiness_score, training_status, vo2max, acute_load_7d, chronic_load_28d, raw_json | 1 linha/dia |
+| `garmin_workouts` | id, activity_id UNIQUE, start_at, type, duration_min, distance_km, avg_hr, max_hr, calories, training_effect_aerobic, training_effect_anaerobic, raw_json | 1 linha/treino |
+| `garmin_body_composition` | id, date UNIQUE, weight_kg, body_fat_pct, muscle_kg, water_pct, bmi, source, raw_json | 1 linha/medição |
+| `garmin_sync_log` | id, ran_at, scope, ok, error | auditoria de sync |
+
+Convenção `raw_json TEXT`: preserva payload bruto para auditoria/replays sem ter que re-chamar a API.
+
+**Comandos novos:**
+
+| Comando | Comportamento |
+|---|---|
+| `/garmin` | Resumo de hoje em uma mensagem: sono da última noite, body battery atual, readiness, passos, calorias, último treino. |
+| `/garmin_sono` | Detalhe do sono da última noite (fases, score, HRV). |
+| `/garmin_hrv` | Tendência de HRV últimos 7d. |
+| `/garmin_treino [id]` | Último treino completo; com id, treino específico. |
+| `/garmin_treinos [n]` | Lista dos últimos N treinos (default 7). |
+| `/garmin_corpo` | Última medição de composição corporal + tendência. |
+| `/garmin_peso <valor>` | Idêntico ao `/peso` da Fase 5, mas explicitamente como Garmin (entra em `garmin_body_composition.source = 'manual'`). |
+| `/garmin_status` | Training status + readiness + acute/chronic load. |
+| `/garmin_semana` | Resumo da semana: sono médio, HRV média, treinos totais, distância, calorias, evolução do peso. |
+| `/garmin_sync` | Força sync imediato (não espera o cron). |
+
+**Jobs no scheduler unificado:**
+
+| Job | Horário | Frequência | Conteúdo |
+|---|---|---|---|
+| `garmin_sync_morning` | 06:30 | Diário | Puxa dados Garmin da última noite + dia anterior, grava nas tabelas. **Job de dados, sem envio.** |
+| `garmin_morning_report` | 07:30 | Diário | Mensagem: "Bom dia. Dormiu Xh (score Y, HRV Z). Body battery: A%. Readiness: B/100. Treino planejado?" Antecede o `/checkin` das 08:00. |
+| `garmin_evening_report` | 19:00 | Diário | "Hoje: X passos, Y kcal, treino: Z (se houver). Estresse médio: W. Vai descansar bem?" Antecede o `/fechamento` das 19:30. |
+| `garmin_sync_postworkout` | a cada 30min | Polling leve | Detecta atividade nova e dispara mensagem de resumo ("Treino: corrida 7,2km em 38min, FC média 152, training effect 3,4 aeróbico"). Opcional — só ativar se o `garmin-dashboard` atual já fazia isso. |
+| `garmin_weekly_block` | Domingo 17:55 | Semanal | Pré-cálculo do bloco Garmin que entra na `/semana` das 18:00. |
+
+**Integração com fluxos existentes:**
+
+- **`/checkin` 08:00** — passa a chamar `garmin_service.get_morning_context()` e inclui no template uma linha "Dormiu X, HRV Y, readiness Z". O usuário responde os 4 bullets como antes; resposta entra em `health_checkins` com os campos Garmin **já pré-preenchidos** (`weight_kg`, `sleep_hours`, etc. vêm do Garmin, não precisam ser digitados).
+- **`/fechamento` 19:30** — inclui "Treino: X (se houve)" e "Passos: Y".
+- **`/semana`** — ganha seção **"Saúde — Garmin"** com sono médio, HRV média, treinos totais, distância, peso (delta), readiness média.
+- **`/saude_semana`** (Fase 7) — passa a usar Garmin como fonte primária; campos manuais (`/peso`, `/treino`, `/sono`) viram fallback se não houver sync.
+
+**Migração do `garmin-dashboard` atual (próxima sessão):**
+
+A próxima sessão deve:
+1. Ler `joaopdavila/garmin-dashboard`, identificar:
+   - lib de auth (garth? garminconnect? requests+session manual?)
+   - estrutura de jobs/agendamento existente (cron? APScheduler? schedule? loop infinito?)
+   - como os dados são armazenados hoje (sqlite? json? csv?)
+   - mensagens já enviadas (formatos, horários, conteúdo)
+   - token Telegram já em uso (passa a ser o **único** token do projeto unificado)
+2. Portar a auth para `app/clients/garmin_client.py` mantendo a sessão atual (não re-logar — reaproveitar tokens existentes para evitar 2FA).
+3. Portar as queries de dados (sono, readiness, body battery, atividades) para `app/services/garmin_service.py`.
+4. Migrar (se houver) dados históricos do `garmin-dashboard` para o `cpf_assistant.db` via script único `migrations/scripts/import_garmin_legacy.py`.
+5. Aposentar o processo do `garmin-dashboard` (parar o cron, remover do startup do Windows) **após 1 semana de overlap** rodando os dois em paralelo para validar paridade.
+
+**Critério de aceite Fase 1.5:**
+- Bot unificado roda com **único** processo, **único** token.
+- Comandos `/garmin*` respondem com dados reais.
+- Jobs `garmin_morning_report` (07:30) e `garmin_evening_report` (19:00) disparam corretamente.
+- Tabelas `garmin_*` populam diariamente via `garmin_sync_morning`.
+- `/checkin`, `/fechamento` e `/semana` exibem contexto Garmin embutido.
+- Nenhuma chamada à API Garmin no caminho síncrono dos handlers — leitura sempre do SQLite, sync fica nos jobs.
+
+**Riscos:**
+- Auth Garmin pode exigir re-2FA — mitigar exportando os tokens da sessão atual antes de desligar o `garmin-dashboard`.
+- Rate limit da Garmin Connect — só sync de manhã e à noite, sem polling agressivo (exceto post-workout, se necessário).
+- Conflito de duas instâncias do bot Telegram com mesmo token → `Conflict: terminated by other getUpdates`. **Cutover plan:** parar o `garmin-dashboard` antes de iniciar a v1 do cpf-assistant unificado.
+- Dados históricos no `garmin-dashboard` em formato diferente — migração one-shot tolerante a falhas (linhas com erro vão para um `garmin_import_errors.log`).
 
 ### Fase 2 — SQLite e camada de repositórios
 **Objetivo:** schema criado, repositório-base funcionando.
