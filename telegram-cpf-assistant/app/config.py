@@ -18,6 +18,9 @@ class Settings:
     timezone: str
     database_path: Path
     log_level: str
+    garmin_email: Optional[str]
+    garmin_password: Optional[str]
+    garmin_token_dir: Path
 
     @classmethod
     def load(cls, env_file: Optional[Path] = None) -> "Settings":
@@ -57,12 +60,26 @@ class Settings:
         else:
             db_path = db_path.resolve()
 
+        garmin_email = os.getenv("GARMIN_EMAIL", "").strip() or None
+        garmin_password = os.getenv("GARMIN_PASSWORD", "").strip() or None
+        token_dir_raw = os.getenv(
+            "GARMIN_TOKEN_DIR", "./data/garmin_session"
+        ).strip()
+        token_dir = Path(token_dir_raw)
+        if not token_dir.is_absolute():
+            token_dir = (PROJECT_ROOT / token_dir).resolve()
+        else:
+            token_dir = token_dir.resolve()
+
         return cls(
             telegram_bot_token=token,
             telegram_chat_id=chat_id,
             timezone=timezone,
             database_path=db_path,
             log_level=log_level,
+            garmin_email=garmin_email,
+            garmin_password=garmin_password,
+            garmin_token_dir=token_dir,
         )
 
     def redacted(self) -> dict[str, object]:
@@ -74,4 +91,7 @@ class Settings:
             "timezone": self.timezone,
             "database_path": str(self.database_path),
             "log_level": self.log_level,
+            "garmin_email": self.garmin_email or "(unset)",
+            "garmin_password": "***" if self.garmin_password else "(unset)",
+            "garmin_token_dir": str(self.garmin_token_dir),
         }

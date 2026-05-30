@@ -17,8 +17,13 @@ dist/
 # Project data
 data/*.db
 data/*.db-journal
+data/*.db-wal
+data/*.db-shm
 data/backups/*
 !data/backups/.gitkeep
+# Garmin OAuth token cache — NUNCA commitar (contém credenciais de sessão)
+data/garmin_session/
+data/garmin_import_errors.log
 logs/*
 !logs/.gitkeep
 
