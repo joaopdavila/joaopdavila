@@ -6,10 +6,12 @@ Assistente pessoal via Telegram para organização de pessoa física (tarefas, n
 - **Local-first** (SQLite em `data/`, sem cloud)
 - **Sem LLM**, sem webhook público, sem integrações externas
 
-> Estado atual: Fases 0, 1, 2 e 1.5 (fusão com o `garmin-dashboard`). Além de
-> `/start`, `/help` e `/ping`, o domínio **Garmin** está portado: comandos
-> `/garmin*`, SQLite com tabelas `garmin_*`, scheduler com jobs de sync,
-> relatórios matinal/vespertino/semanal e alertas reativos.
+> Estado atual: **MVP funcional** — Fases 0–7 + 1.5. Domínios ativos: núcleo
+> (`/start` `/help` `/ping`), tarefas, notas, compras, finanças, check-in/
+> fechamento, casamento, saúde manual, revisão semanal (`/semana`) e **Garmin**
+> (port do `garmin-dashboard`). SQLite com 11 tabelas, scheduler com 11 jobs
+> (6 do núcleo + 5 Garmin). Faltam só Fase 8 (export/backup) e Fase 9 (testes/
+> hardening).
 
 ## Requisitos
 
@@ -84,13 +86,28 @@ Mesmos passos, com `python3 -m venv .venv` e `source .venv/bin/activate`.
 
 > Observação: o bot só responde ao chat id configurado. Qualquer mensagem de outro chat é descartada silenciosamente (com `WARNING` no log).
 
-## Comandos disponíveis (Fase 1)
+## Comandos disponíveis
+
+Núcleo:
 
 | Comando | Comportamento |
 |---|---|
 | `/start` | Confirma que o bot está online. |
-| `/help` | Lista comandos atuais e os planejados para as próximas fases. |
+| `/help` | Lista todos os comandos ativos. |
 | `/ping` | Responde `pong — uptime XhYYm`. |
+
+Domínios de organização pessoal (ativos):
+
+| Domínio | Comandos |
+|---|---|
+| Tarefas | `/tarefa` `/tarefas` `/tarefas_hoje` `/tarefas_semana` `/feito` `/pendente` |
+| Notas | `/nota` `/notas` `/buscar` |
+| Compras | `/comprar` `/compras` `/comprado` `/limpar_compras` |
+| Finanças | `/gasto` `/conta` `/contas` `/pago` `/financas_semana` `/financas_mes` |
+| Check-in/Fechamento | `/checkin` `/fechamento` (resposta livre capturada em até 2h) |
+| Casamento | `/casamento` `/casamento_pendencias` `/casamento_pago` `/casamento_fornecedor` |
+| Saúde manual | `/peso` `/treino` `/sono` `/saude_semana` |
+| Revisão | `/semana` (consolida todos os domínios + bloco Garmin) |
 
 ### Comandos Garmin (Fase 1.5)
 
@@ -109,6 +126,17 @@ Mesmos passos, com `python3 -m venv .venv` e `source .venv/bin/activate`.
 
 Os comandos `/garmin*` leem sempre do SQLite local; a sincronização com a API
 do Garmin acontece nos jobs agendados (e via `/garmin_sync`).
+
+**Jobs do núcleo no scheduler** (fuso `America/Sao_Paulo`):
+
+| Job | Horário | Conteúdo |
+|---|---|---|
+| `morning_checkin` | 08:00 diário | Envia o template de check-in (com contexto Garmin) e abre captura de 2h. |
+| `monday_priorities` | Segunda 08:05 | Pergunta as 3 prioridades da semana. |
+| `midday_reminder` | 12:30 (seg–sex) | Lembrete leve do meio-dia. |
+| `friday_finance` | Sexta 17:30 | Fechamento financeiro da semana. |
+| `evening_closing` | 19:30 diário | Envia o template de fechamento e abre captura de 2h. |
+| `weekly_review` | Domingo 18:00 | Revisão semanal consolidada (mesmo do `/semana`). |
 
 **Jobs Garmin no scheduler** (fuso `America/Sao_Paulo`):
 
@@ -265,12 +293,11 @@ Implementação em fases (ver plano de design completo):
 - **Fase 1** ✅ Bot mínimo com gate de segurança.
 - **Fase 1.5** ✅ Fusão com o garmin-dashboard (domínio Garmin).
 - **Fase 2** ✅ SQLite + repositórios base.
-- **Fase 6** ✅ Scheduler (jobs Garmin; demais jobs nas próximas fases).
-- **Fase 3** Tarefas e notas.
-- **Fase 4** Compras e finanças.
-- **Fase 5** Check-in e fechamento manuais.
-- **Fase 6** Scheduler (mensagens automáticas).
-- **Fase 7** Revisão semanal, casamento, saúde estendida.
+- **Fase 3** ✅ Tarefas e notas.
+- **Fase 4** ✅ Compras e finanças.
+- **Fase 5** ✅ Check-in e fechamento manuais.
+- **Fase 6** ✅ Scheduler (mensagens automáticas: 6 jobs do núcleo + 5 Garmin).
+- **Fase 7** ✅ Revisão semanal, casamento, saúde estendida.
 - **Fase 8** Exportação Excel + backup.
 - **Fase 9** Testes e hardening.
 

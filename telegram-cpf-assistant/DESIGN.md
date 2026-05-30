@@ -1,12 +1,14 @@
 # telegram-cpf-assistant — Design & Plano de Implementação
 
-> **Atualização de sessão (2026-05-30, port executado)** — antes de ler o restante:
+> **Atualização de sessão (2026-05-30, MVP funcional)** — antes de ler o restante:
 >
-> **Já feito:**
-> - Fase 0 (scaffold), Fase 1 (bot mínimo + gate), Fase 2 (SQLite + migrations runner) e Fase 1.5 (fusão com o `garmin-dashboard`) commitadas em `telegram-cpf-assistant/` na branch `claude/telegram-cpf-assistant-design-t31ZQ`.
+> **Já feito (Fases 0–7 + 1.5):**
+> - Fases 0, 1, 2, 3, 4, 5, 6, 7 e 1.5 commitadas em `telegram-cpf-assistant/` na branch `claude/telegram-cpf-assistant-design-t31ZQ`.
 > - PR draft #1 aberto em `joaopdavila/joaopdavila`.
-> - Comandos `/start`, `/help`, `/ping` + os 10 comandos `/garmin*` funcionais.
-> - Scheduler unificado (APScheduler) com 5 jobs Garmin (`garmin_sync_morning`, `garmin_morning_report`, `garmin_evening_report`, `garmin_alerts`, `garmin_weekly`).
+> - **43 comandos** ativos: núcleo, tarefas, notas, compras, finanças, check-in/fechamento, casamento, saúde manual, revisão (`/semana`) e os 10 `/garmin*`.
+> - **11 tabelas SQLite** (schema_version=6) e **scheduler com 11 jobs** (6 do núcleo + 5 Garmin).
+> - Testes pytest dos services (tarefas, finanças, compras, saúde) passando.
+> - Restam Fase 8 (export Excel + backup) e Fase 9 (testes/hardening).
 >
 > **Fase 1.5 — porte concluído** (ver `PORT_PLAN.md` para o levantamento completo):
 > - Auth Garmin: lib `garminconnect` (cache OAuth), portada para `app/clients/garmin_client.py` com `GARMIN_TOKEN_DIR` configurável (default `data/garmin_session/`).
