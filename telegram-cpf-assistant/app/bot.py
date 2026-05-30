@@ -11,8 +11,10 @@ from app.handlers.finance import register_finance_handlers
 from app.handlers.garmin import register_garmin_handlers
 from app.handlers.health import register_health_handlers
 from app.handlers.notes import register_notes_handlers
+from app.handlers.review import register_review_handlers
 from app.handlers.shopping import register_shopping_handlers
 from app.handlers.tasks import register_tasks_handlers
+from app.handlers.wedding import register_wedding_handlers
 from app.scheduler import build_scheduler
 from app.security import authorized_only
 
@@ -21,31 +23,17 @@ log = logging.getLogger(__name__)
 _START_MONOTONIC = time.monotonic()
 
 HELP_TEXT = (
-    "telegram-cpf-assistant — comandos disponíveis nesta fase:\n"
-    "/start — inicializa o bot\n"
-    "/help — esta mensagem\n"
-    "/ping — healthcheck\n"
-    "\n"
-    "Garmin:\n"
-    "/garmin — resumo de hoje (sono, body battery, readiness, último treino)\n"
-    "/garmin_sono — detalhe do sono da última noite\n"
-    "/garmin_hrv — tendência de HRV dos últimos 7 dias\n"
-    "/garmin_treino [id] — último treino (ou específico)\n"
-    "/garmin_treinos [n] — últimos N treinos\n"
-    "/garmin_corpo — composição corporal + variação\n"
-    "/garmin_peso <valor> — registra peso manual\n"
-    "/garmin_status — training status + readiness + carga\n"
-    "/garmin_semana — resumo semanal Garmin\n"
-    "/garmin_sync — força sincronização imediata\n"
-    "\n"
-    "Comandos previstos (próximas fases):\n"
+    "telegram-cpf-assistant — comandos:\n"
+    "Núcleo: /start /help /ping\n"
     "Tarefas: /tarefa /tarefas /tarefas_hoje /tarefas_semana /feito /pendente\n"
     "Notas: /nota /notas /buscar\n"
     "Compras: /comprar /compras /comprado /limpar_compras\n"
     "Finanças: /gasto /conta /contas /pago /financas_semana /financas_mes\n"
     "Casamento: /casamento /casamento_pendencias /casamento_pago /casamento_fornecedor\n"
     "Saúde: /checkin /fechamento /peso /treino /sono /saude_semana\n"
-    "Revisão: /semana"
+    "Revisão: /semana\n"
+    "Garmin: /garmin /garmin_sono /garmin_hrv /garmin_treino /garmin_treinos "
+    "/garmin_corpo /garmin_peso /garmin_status /garmin_semana /garmin_sync"
 )
 
 
@@ -117,6 +105,8 @@ def build_application(settings: Settings) -> Application:
     register_shopping_handlers(application, settings)
     register_finance_handlers(application, settings)
     register_health_handlers(application, settings)
+    register_wedding_handlers(application, settings)
+    register_review_handlers(application, settings)
 
     async def error_handler(
         update: object, context: ContextTypes.DEFAULT_TYPE

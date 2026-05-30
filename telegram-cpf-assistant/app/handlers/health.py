@@ -119,7 +119,65 @@ def register_health_handlers(application: Application, settings: Settings) -> No
         finally:
             repo.close()
 
+    @gate
+    async def peso(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        if not context.args:
+            await _reply(update, "Uso: /peso <valor>. Ex: /peso 84.2")
+            return
+        try:
+            value = float(context.args[0].replace(",", "."))
+        except ValueError:
+            await _reply(update, "Valor inválido. Ex: /peso 84.2")
+            return
+        repo = _repo()
+        try:
+            hs.save_weight(repo, value)
+        finally:
+            repo.close()
+        await _reply(update, f"Peso registrado: {value:.1f} kg.")
+
+    @gate
+    async def treino(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        text = " ".join(context.args).strip()
+        if not text:
+            await _reply(update, "Uso: /treino <texto>. Ex: /treino corrida 6km")
+            return
+        repo = _repo()
+        try:
+            hs.save_workout(repo, text)
+        finally:
+            repo.close()
+        await _reply(update, "Treino registrado.")
+
+    @gate
+    async def sono(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        text = " ".join(context.args).strip()
+        if not text:
+            await _reply(update, "Uso: /sono <horas ou texto>. Ex: /sono 7.5")
+            return
+        repo = _repo()
+        try:
+            hs.save_sleep(repo, text)
+        finally:
+            repo.close()
+        await _reply(update, "Sono registrado.")
+
+    @gate
+    async def saude_semana(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        repo = _repo()
+        garmin_repo = GarminRepository(db_path)
+        try:
+            text = hs.week_summary(repo, garmin_repo)
+        finally:
+            repo.close()
+            garmin_repo.close()
+        await _reply(update, text)
+
     application.add_handler(CommandHandler("checkin", checkin))
     application.add_handler(CommandHandler("fechamento", fechamento))
+    application.add_handler(CommandHandler("peso", peso))
+    application.add_handler(CommandHandler("treino", treino))
+    application.add_handler(CommandHandler("sono", sono))
+    application.add_handler(CommandHandler("saude_semana", saude_semana))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, free_text))
     log.info("registered health handlers")

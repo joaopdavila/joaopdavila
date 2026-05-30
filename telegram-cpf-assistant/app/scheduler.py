@@ -15,6 +15,12 @@ from apscheduler.triggers.cron import CronTrigger
 
 from app.config import Settings
 from app.jobs import (
+    core_evening_closing,
+    core_friday_finance,
+    core_midday_reminder,
+    core_monday_priorities,
+    core_morning_checkin,
+    core_weekly_review,
     garmin_alerts,
     garmin_evening_report,
     garmin_morning_report,
@@ -36,11 +42,19 @@ class JobSpec:
 
 def _job_specs() -> list[JobSpec]:
     return [
+        # Garmin (Fase 1.5)
         JobSpec("garmin_sync_morning", garmin_sync_morning.run, {"hour": 6, "minute": 30}),
         JobSpec("garmin_morning_report", garmin_morning_report.run, {"hour": 7, "minute": 30}),
         JobSpec("garmin_evening_report", garmin_evening_report.run, {"hour": 19, "minute": 0}),
         JobSpec("garmin_alerts", garmin_alerts.run, {"hour": "8,14,20", "minute": 0}),
         JobSpec("garmin_weekly", garmin_weekly.run, {"day_of_week": "sun", "hour": 17, "minute": 55}),
+        # Núcleo (Fase 6)
+        JobSpec("morning_checkin", core_morning_checkin.run, {"hour": 8, "minute": 0}),
+        JobSpec("monday_priorities", core_monday_priorities.run, {"day_of_week": "mon", "hour": 8, "minute": 5}),
+        JobSpec("midday_reminder", core_midday_reminder.run, {"day_of_week": "mon-fri", "hour": 12, "minute": 30}),
+        JobSpec("friday_finance", core_friday_finance.run, {"day_of_week": "fri", "hour": 17, "minute": 30}),
+        JobSpec("evening_closing", core_evening_closing.run, {"hour": 19, "minute": 30}),
+        JobSpec("weekly_review", core_weekly_review.run, {"day_of_week": "sun", "hour": 18, "minute": 0}),
     ]
 
 
