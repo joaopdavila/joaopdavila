@@ -7,6 +7,8 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
 from app.config import Settings
+from app.handlers.garmin import register_garmin_handlers
+from app.scheduler import build_scheduler
 from app.security import authorized_only
 
 log = logging.getLogger(__name__)
@@ -18,6 +20,18 @@ HELP_TEXT = (
     "/start — inicializa o bot\n"
     "/help — esta mensagem\n"
     "/ping — healthcheck\n"
+    "\n"
+    "Garmin:\n"
+    "/garmin — resumo de hoje (sono, body battery, readiness, último treino)\n"
+    "/garmin_sono — detalhe do sono da última noite\n"
+    "/garmin_hrv — tendência de HRV dos últimos 7 dias\n"
+    "/garmin_treino [id] — último treino (ou específico)\n"
+    "/garmin_treinos [n] — últimos N treinos\n"
+    "/garmin_corpo — composição corporal + variação\n"
+    "/garmin_peso <valor> — registra peso manual\n"
+    "/garmin_status — training status + readiness + carga\n"
+    "/garmin_semana — resumo semanal Garmin\n"
+    "/garmin_sync — força sincronização imediata\n"
     "\n"
     "Comandos previstos (próximas fases):\n"
     "Tarefas: /tarefa /tarefas /tarefas_hoje /tarefas_semana /feito /pendente\n"
@@ -40,10 +54,30 @@ def _format_uptime(seconds: int) -> str:
     return f"{secs}s"
 
 
+async def _post_init(application: Application) -> None:
+    settings: Settings = application.bot_data["settings"]
+    scheduler = build_scheduler(application, settings)
+    scheduler.start()
+    application.bot_data["scheduler"] = scheduler
+    log.info("scheduler started")
+
+
+async def _post_shutdown(application: Application) -> None:
+    scheduler = application.bot_data.get("scheduler")
+    if scheduler is not None:
+        scheduler.shutdown(wait=False)
+        log.info("scheduler stopped")
+
+
 def build_application(settings: Settings) -> Application:
     application = (
-        Application.builder().token(settings.telegram_bot_token).build()
+        Application.builder()
+        .token(settings.telegram_bot_token)
+        .post_init(_post_init)
+        .post_shutdown(_post_shutdown)
+        .build()
     )
+    application.bot_data["settings"] = settings
     gate = authorized_only(settings.telegram_chat_id)
 
     @gate
@@ -71,6 +105,8 @@ def build_application(settings: Settings) -> Application:
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_cmd))
     application.add_handler(CommandHandler("ping", ping))
+
+    register_garmin_handlers(application, settings)
 
     async def error_handler(
         update: object, context: ContextTypes.DEFAULT_TYPE
