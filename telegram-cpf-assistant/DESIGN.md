@@ -766,6 +766,25 @@ A v1 está pronta quando, **simultaneamente**, todos os itens abaixo forem verda
 13. `.env.example` cobre todas as variáveis.
 14. Bot roda 7 dias consecutivos com você usando, sem crash não tratado.
 
+### Cobertura da Fase 1.5 (Garmin) — estado atual
+
+Itens da Fase 1.5 **já cobertos** por esta etapa do port:
+
+- [x] Bot unificado com **único processo** e **único `TELEGRAM_BOT_TOKEN`** (cutover documentado no README).
+- [x] Comandos `/garmin*` (10) registrados e respondendo a partir do SQLite.
+- [x] Tabelas `garmin_*` (6) criadas via `migrations/002_garmin.sql`, com `raw_json`.
+- [x] Cliente Garmin portado (`garminconnect`, cache OAuth via `GARMIN_TOKEN_DIR`).
+- [x] Jobs no scheduler unificado: `garmin_sync_morning` (06:30), `garmin_morning_report` (07:30), `garmin_evening_report` (19:00), `garmin_weekly` (dom 17:55) + `garmin_alerts` (08/14/20h).
+- [x] Sincronização escreve no SQLite; **nenhuma chamada à API Garmin no caminho síncrono dos handlers** (handlers leem só do SQLite).
+- [x] Importador one-shot de dados históricos de composição corporal (`import_garmin_legacy.py`), tolerante a falhas.
+- [x] `py_compile`, smoke-test de `build_application()` (13 handlers) e do scheduler (5 jobs com next-run no fuso correto).
+
+Itens da Fase 1.5 **ainda pendentes** (dependem de fases não implementadas e/ou validação em produção):
+
+- [ ] Integração do contexto Garmin embutido em `/checkin`, `/fechamento` e `/semana` — esses fluxos pertencem às Fases 3–7, que ainda não existem.
+- [ ] Validação de paridade em produção (checklist no README) e aposentadoria manual do garmin-dashboard.
+- [ ] Confirmação de auth real contra o Garmin Connect (depende dos tokens/credenciais do usuário; testado aqui só o caminho de degradação sem credenciais).
+
 ---
 
 ## 12. Riscos e decisões em aberto
